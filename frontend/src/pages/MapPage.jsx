@@ -46,7 +46,6 @@ export default function MapPage() {
   const [projection, setProjection] = useState('globe');
   const [autoFlattened, setAutoFlattened] = useState(false);
   const projectionRef = useRef('globe');
-  const [drawState, setDrawState] = useState({ mode: '-', features: 0, clicks: 0, proj: '-' });
   const [pending, setPending] = useState(null);
   const [siteName, setSiteName] = useState('');
   const [targetProject, setTargetProject] = useState(projectId ?? '');
@@ -153,29 +152,13 @@ export default function MapPage() {
       });
     });
 
-    let clickCount = 0;
-    const report = () => {
-      setDrawState({
-        mode: drawRef.current?.getMode?.() ?? 'NO DRAW',
-        features: drawRef.current?.getAll?.()?.features?.length ?? -1,
-        clicks: clickCount,
-        proj: map.getProjection?.()?.name ?? '-',
-      });
-    };
-
-    map.on('click', () => {
-      clickCount += 1;
-      report();
-    });
     map.on('draw.modechange', (event) => {
-      report();
       if (event?.mode?.startsWith('draw_') && projectionRef.current === 'globe') {
         projectionRef.current = 'mercator';
         setProjection('mercator');
         setAutoFlattened(true);
       }
     });
-    map.on('draw.render', report);
 
     map.on('draw.create', (event) => {
       const feature = event.features?.[0];
@@ -288,8 +271,6 @@ export default function MapPage() {
     (sum, feature) => sum + (feature.properties?.area_ha ?? 0),
     0
   );
-  const showDebug =
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug');
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -360,16 +341,6 @@ export default function MapPage() {
           )}
         </div>
       </div>
-
-      {showDebug && (
-        <div className="absolute left-4 top-20 z-40 rounded-lg border border-line bg-surface/95 p-3 font-mono text-[11px] leading-relaxed shadow-lift">
-          <p className="mb-1 font-sans font-semibold">draw state</p>
-          <div>mode: {drawState.mode}</div>
-          <div>features: {drawState.features}</div>
-          <div>map clicks: {drawState.clicks}</div>
-          <div>projection: {drawState.proj}</div>
-        </div>
-      )}
 
       {autoFlattened && (
         <div className="pointer-events-none absolute inset-x-0 top-20 z-20 flex justify-center px-4">
