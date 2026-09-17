@@ -21,8 +21,8 @@ export default function Layout() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    logout();
     navigate('/', { replace: true });
+    logout();
   };
 
   return (

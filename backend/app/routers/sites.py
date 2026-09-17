@@ -221,6 +221,13 @@ def get_site(site_id: int, db: DbSession, user: CurrentUser) -> SiteOut:
     )
 
 
+@router.delete("/sites/{site_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_site(site_id: int, db: DbSession, user: CurrentUser) -> None:
+    site = _owned_site(db, site_id, user.id)
+    db.delete(site)
+    db.commit()
+
+
 @router.get("/sites/{site_id}/analytics", response_model=SiteAnalytics)
 def site_analytics(site_id: int, db: DbSession, user: CurrentUser) -> SiteAnalytics:
     site = _owned_site(db, site_id, user.id)

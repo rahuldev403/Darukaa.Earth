@@ -1,7 +1,8 @@
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
+import AuthModal from '../components/AuthModal.jsx';
 import Logo from '../components/Logo.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -55,7 +56,28 @@ const LOTTIE_SRC = '/hero-animation.lottie';
 
 export default function LandingPage() {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [lottieFailed, setLottieFailed] = useState(false);
+  const [authMode, setAuthMode] = useState(null);
+
+  const requestedMode = location.state?.authMode;
+  const returnTo = location.state?.from ?? '/dashboard';
+
+  useEffect(() => {
+    if (requestedMode) {
+      setAuthMode(requestedMode);
+      window.history.replaceState({}, '');
+    }
+  }, [requestedMode]);
+
+  const openAuth = (mode) => setAuthMode(mode);
+  const closeAuth = () => setAuthMode(null);
+  const handleAuthed = () => {
+    setAuthMode(null);
+    navigate(returnTo, { replace: true });
+  };
 
   return (
     <div className="min-h-dvh bg-canvas">
@@ -69,12 +91,20 @@ export default function LandingPage() {
               </Link>
             ) : (
               <>
-                <Link to="/login" className="btn text-white/80 hover:bg-white/10 hover:text-white">
+                <button
+                  type="button"
+                  onClick={() => openAuth('login')}
+                  className="btn text-white/80 hover:bg-white/10 hover:text-white"
+                >
                   Sign in
-                </Link>
-                <Link to="/register" className="btn bg-white text-forest-800 hover:bg-forest-50">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openAuth('register')}
+                  className="btn bg-white text-forest-800 hover:bg-forest-50"
+                >
                   Get started
-                </Link>
+                </button>
               </>
             )}
           </div>
@@ -114,7 +144,13 @@ export default function LandingPage() {
 
               <div className="mt-9 flex flex-wrap items-center gap-3">
                 <Link
-                  to={isAuthenticated ? '/dashboard' : '/register'}
+                  to="/dashboard"
+                  onClick={(e) => {
+                    if (!isAuthenticated) {
+                      e.preventDefault();
+                      openAuth('register');
+                    }
+                  }}
                   className="btn bg-forest-400 px-5 py-2.5 text-forest-900 hover:bg-forest-300"
                 >
                   {isAuthenticated ? 'Open dashboard' : 'Start mapping'}
@@ -230,7 +266,13 @@ export default function LandingPage() {
               against it.
             </p>
             <Link
-              to={isAuthenticated ? '/dashboard' : '/register'}
+              to="/dashboard"
+              onClick={(e) => {
+                if (!isAuthenticated) {
+                  e.preventDefault();
+                  openAuth('register');
+                }
+              }}
               className="btn mt-8 bg-forest-400 px-5 py-2.5 text-forest-900 hover:bg-forest-300"
             >
               {isAuthenticated ? 'Open dashboard' : 'Create an account'}
@@ -247,6 +289,13 @@ export default function LandingPage() {
           </p>
         </div>
       </footer>
+
+      <AuthModal
+        open={Boolean(authMode)}
+        initialMode={authMode ?? 'login'}
+        onClose={closeAuth}
+        onSuccess={handleAuthed}
+      />
     </div>
   );
 }

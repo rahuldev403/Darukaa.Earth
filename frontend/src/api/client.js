@@ -22,11 +22,11 @@ client.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    const onAuthPage = ['/login', '/register'].includes(window.location.pathname);
+    const onLandingPage = window.location.pathname === '/';
 
-    if (status === 401 && !onAuthPage) {
+    if (status === 401 && !onLandingPage) {
       localStorage.removeItem(TOKEN_KEY);
-      window.location.assign('/login');
+      window.location.assign('/');
     }
     return Promise.reject(error);
   }

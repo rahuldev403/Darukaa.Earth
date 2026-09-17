@@ -5,8 +5,6 @@ import Layout from './components/Layout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import LandingPage from './pages/LandingPage.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import RegisterPage from './pages/RegisterPage.jsx';
 
 const MapPage = lazy(() => import('./pages/MapPage.jsx'));
 const SiteDetailPage = lazy(() => import('./pages/SiteDetailPage.jsx'));
@@ -25,8 +23,11 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/login" element={<Navigate to="/" replace state={{ authMode: 'login' }} />} />
+      <Route
+        path="/register"
+        element={<Navigate to="/" replace state={{ authMode: 'register' }} />}
+      />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
