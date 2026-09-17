@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { apiError } from '../api/client.js';
-import { createProject, listProjects } from '../api/resources.js';
+import { createProject, deleteProject, listProjects } from '../api/resources.js';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
 const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
 
@@ -18,51 +19,50 @@ function SummaryStat({ label, value, suffix }) {
   );
 }
 
-function ProjectCard({ project }) {
+function ProjectCard({ project, onRequestDelete }) {
   return (
-    <Link
-      to={`/projects/${project.id}`}
-      className="card group flex flex-col p-5 transition-colors hover:border-line-strong"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="font-semibold leading-snug transition-colors group-hover:text-forest-700">
-          {project.name}
-        </h3>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          aria-hidden="true"
-          className="mt-0.5 shrink-0 text-faint transition-colors group-hover:text-forest-600"
-        >
+    <div className="card group relative flex flex-col p-5 transition-colors hover:border-line-strong">
+      <button
+        type="button"
+        aria-label={`Delete ${project.name}`}
+        title="Delete project"
+        onClick={() => onRequestDelete(project)}
+        className="absolute right-3 top-3 z-10 rounded-lg p-1.5 text-faint opacity-0 transition-all hover:bg-danger-500/10 hover:text-danger-500 focus-visible:opacity-100 group-hover:opacity-100"
+      >
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <path
-            d="M3 8h10M9 4l4 4-4 4"
+            d="M3 4.5h10M6.5 4.5V3.5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1M4.5 4.5l.5 8a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l.5-8"
             stroke="currentColor"
-            strokeWidth="1.6"
+            strokeWidth="1.3"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
         </svg>
-      </div>
+      </button>
 
-      <p className="mt-1.5 line-clamp-2 min-h-10 text-sm leading-relaxed text-muted">
-        {project.description || 'No description provided.'}
-      </p>
+      <Link to={`/projects/${project.id}`} className="flex flex-1 flex-col">
+        <h3 className="pr-7 font-semibold leading-snug transition-colors group-hover:text-forest-700">
+          {project.name}
+        </h3>
 
-      <div className="mt-5 flex items-center gap-6 border-t border-line pt-3.5">
-        <div>
-          <p className="text-lg font-semibold tabular-nums">{project.site_count ?? 0}</p>
-          <p className="text-[11px] text-muted">{project.site_count === 1 ? 'Site' : 'Sites'}</p>
+        <p className="mt-1.5 line-clamp-2 min-h-10 text-sm leading-relaxed text-muted">
+          {project.description || 'No description provided.'}
+        </p>
+
+        <div className="mt-5 flex items-center gap-6 border-t border-line pt-3.5">
+          <div>
+            <p className="text-lg font-semibold tabular-nums">{project.site_count ?? 0}</p>
+            <p className="text-[11px] text-muted">{project.site_count === 1 ? 'Site' : 'Sites'}</p>
+          </div>
+          <div>
+            <p className="text-lg font-semibold tabular-nums">
+              {numberFormat.format(project.total_area_ha ?? 0)}
+            </p>
+            <p className="text-[11px] text-muted">Hectares</p>
+          </div>
         </div>
-        <div>
-          <p className="text-lg font-semibold tabular-nums">
-            {numberFormat.format(project.total_area_ha ?? 0)}
-          </p>
-          <p className="text-[11px] text-muted">Hectares</p>
-        </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }
 
@@ -76,6 +76,10 @@ export default function DashboardPage() {
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
+
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,6 +116,22 @@ export default function DashboardPage() {
       setFormError(apiError(err, 'Could not create the project.'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteProject(pendingDelete.id);
+      setProjects((current) => current.filter((p) => p.id !== pendingDelete.id));
+      setPendingDelete(null);
+    } catch (err) {
+      setDeleteError(apiError(err, 'Could not delete the project.'));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -242,11 +262,31 @@ export default function DashboardPage() {
         {!loading && !error && projects.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {projects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+              <ProjectCard key={project.id} project={project} onRequestDelete={setPendingDelete} />
             ))}
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title={`Delete "${pendingDelete?.name ?? ''}"?`}
+        body={
+          pendingDelete?.site_count
+            ? `This permanently removes the project, its ${pendingDelete.site_count} site${
+                pendingDelete.site_count === 1 ? '' : 's'
+              } and all analytics collected for them. This cannot be undone.`
+            : 'This permanently removes the project. This cannot be undone.'
+        }
+        confirmLabel="Delete project"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          setPendingDelete(null);
+          setDeleteError(null);
+        }}
+      />
     </div>
   );
 }

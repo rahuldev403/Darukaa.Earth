@@ -123,13 +123,20 @@ async def _ingest(site: Site, geometry: dict, area_ha: float) -> tuple[list[Site
 
 
 @router.get("/sites", response_model=FeatureCollection)
-def list_sites(db: DbSession, user: CurrentUser) -> FeatureCollection:
-    rows = db.execute(
+def list_sites(
+    db: DbSession, user: CurrentUser, project_id: int | None = None
+) -> FeatureCollection:
+    statement = (
         select(Site, Project.name, ST_AsGeoJSON(Site.geom))
         .join(Project, Site.project_id == Project.id)
         .where(Project.owner_id == user.id)
         .order_by(Site.created_at.desc())
-    ).all()
+    )
+
+    if project_id is not None:
+        statement = statement.where(Site.project_id == project_id)
+
+    rows = db.execute(statement).all()
 
     return FeatureCollection(
         features=[

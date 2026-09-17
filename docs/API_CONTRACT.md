@@ -92,14 +92,27 @@ Used on app boot to validate a stored token before trusting it.
 
 > A project owned by someone else returns **404, not 403** — don't leak that the ID exists.
 
+### `DELETE /api/projects/{id}` _(auth)_
+
+```
+// 204 No Content
+// 404 -> { "detail": "Project not found" }   (also when it belongs to another user)
+```
+
+Cascades: deleting a project removes its sites and all of their metrics, enforced both by the ORM
+relationship and by `ON DELETE CASCADE` on the foreign keys.
+
 ---
 
 ## Sites
 
-### `GET /api/sites` _(auth)_ — every site the user owns, as **GeoJSON**
+### `GET /api/sites?project_id={id}` _(auth)_ — sites as **GeoJSON**
 
 Drives the main map. Returning a real `FeatureCollection` means it goes straight into a Mapbox
 source with zero transformation on the client.
+
+`project_id` is optional. Omitted, it returns every site the user owns (the `/map` view); supplied,
+it scopes to that one project (the `/projects/:id` view). Ownership is always enforced regardless.
 
 ```jsonc
 {
@@ -156,6 +169,15 @@ lon ∈ [-180,180], lat ∈ [-90,90], ≥ 4 coordinate pairs.
   "area_ha": 120.4, "ingest_status": "complete", "created_at": "...",
   "geometry": { ... } }
 ```
+
+### `DELETE /api/sites/{id}` _(auth)_
+
+```
+// 204 No Content
+// 404 -> { "detail": "Site not found" }   (also when it belongs to another user)
+```
+
+Cascades to every `site_metrics` row for that site.
 
 ### `GET /api/sites/{id}/analytics` _(auth)_ — the payload behind the whole detail page
 

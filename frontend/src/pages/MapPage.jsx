@@ -3,10 +3,11 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { apiError } from '../api/client.js';
-import { createSite, listProjects, listSitesGeoJson } from '../api/resources.js';
+import { createSite, deleteSite, listProjects, listSitesGeoJson } from '../api/resources.js';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const EMPTY_COLLECTION = { type: 'FeatureCollection', features: [] };
@@ -50,10 +51,16 @@ export default function MapPage() {
   const [siteName, setSiteName] = useState('');
   const [targetProject, setTargetProject] = useState(projectId ?? '');
   const [saving, setSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
-      const [collection, projectList] = await Promise.all([listSitesGeoJson(), listProjects()]);
+      const [collection, projectList] = await Promise.all([
+        listSitesGeoJson(projectId),
+        listProjects(),
+      ]);
       setSites(collection ?? EMPTY_COLLECTION);
       setProjects(projectList ?? []);
       setTargetProject((current) => current || projectId || String(projectList?.[0]?.id ?? ''));
@@ -63,6 +70,7 @@ export default function MapPage() {
   }, [projectId]);
 
   useEffect(() => {
+    hasFitRef.current = false;
     loadData();
   }, [loadData]);
 
@@ -235,6 +243,22 @@ export default function MapPage() {
     else map.once('idle', apply);
   }, [projection]);
 
+  const confirmDeleteSite = async () => {
+    if (!pendingDelete) return;
+
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteSite(pendingDelete.id);
+      setPendingDelete(null);
+      await loadData();
+    } catch (err) {
+      setDeleteError(apiError(err, 'Could not delete the site.'));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const cancelPending = () => {
     drawRef.current?.deleteAll();
     setPending(null);
@@ -258,6 +282,7 @@ export default function MapPage() {
     }
   };
 
+  const activeProject = projectId ? projects.find((p) => String(p.id) === String(projectId)) : null;
   const siteCount = sites.features?.length ?? 0;
   const totalArea = (sites.features ?? []).reduce(
     (sum, feature) => sum + (feature.properties?.area_ha ?? 0),
@@ -287,10 +312,19 @@ export default function MapPage() {
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-4">
         <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-3 rounded-xl border border-line bg-surface/90 px-4 py-2.5 shadow-lift backdrop-blur-md">
-          <span className="flex items-center gap-2 text-sm font-medium">
-            <span className="h-1.5 w-1.5 rounded-full bg-forest-500" />
-            {siteCount} site{siteCount === 1 ? '' : 's'}
+          <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-forest-500" />
+            <span className="truncate">{activeProject ? activeProject.name : 'All sites'}</span>
+            <span className="shrink-0 text-muted">
+              · {siteCount} site{siteCount === 1 ? '' : 's'}
+            </span>
           </span>
+
+          {activeProject && (
+            <Link to="/map" className="shrink-0 text-xs text-forest-700 hover:underline">
+              View all
+            </Link>
+          )}
           <span className="hidden text-xs text-muted lg:inline">
             Click the polygon tool, trace a boundary, then double-click to finish.
           </span>
@@ -371,6 +405,73 @@ export default function MapPage() {
           </p>
         </div>
       )}
+
+      {siteCount > 0 && !pending && (
+        <div className="absolute bottom-6 left-4 z-10 w-64">
+          <div className="card max-h-64 overflow-auto p-2 shadow-lift">
+            <p className="px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-faint">
+              Sites
+            </p>
+            <ul>
+              {sites.features.map((feature) => (
+                <li
+                  key={feature.properties.id}
+                  className="group flex items-center gap-1 rounded-lg px-2 py-1.5 hover:bg-forest-50/70"
+                >
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/sites/${feature.properties.id}`)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <span className="block truncate text-sm font-medium">
+                      {feature.properties.name}
+                    </span>
+                    <span className="block text-[11px] tabular-nums text-muted">
+                      {numberFormat.format(feature.properties.area_ha ?? 0)} ha
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${feature.properties.name}`}
+                    title="Delete site"
+                    onClick={() =>
+                      setPendingDelete({
+                        id: feature.properties.id,
+                        name: feature.properties.name,
+                      })
+                    }
+                    className="shrink-0 rounded-md p-1.5 text-faint opacity-0 transition-all hover:bg-danger-500/10 hover:text-danger-500 focus-visible:opacity-100 group-hover:opacity-100"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path
+                        d="M3 4.5h10M6.5 4.5V3.5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1M4.5 4.5l.5 8a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l.5-8"
+                        stroke="currentColor"
+                        strokeWidth="1.3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title={`Delete "${pendingDelete?.name ?? ''}"?`}
+        body="This permanently removes the site and every metric collected for it. This cannot be undone."
+        confirmLabel="Delete site"
+        busy={deleting}
+        error={deleteError}
+        onConfirm={confirmDeleteSite}
+        onCancel={() => {
+          setPendingDelete(null);
+          setDeleteError(null);
+        }}
+      />
 
       {pending && (
         <div className="absolute right-4 top-20 z-20 w-80 animate-fade-up">
