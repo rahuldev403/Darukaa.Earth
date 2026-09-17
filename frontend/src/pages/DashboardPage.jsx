@@ -6,27 +6,60 @@ import { createProject, listProjects } from '../api/resources.js';
 
 const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
 
+function SummaryStat({ label, value, suffix }) {
+  return (
+    <div className="card px-5 py-4">
+      <p className="text-xs text-muted">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums">
+        {value}
+        {suffix && <span className="ml-1 text-sm font-normal text-muted">{suffix}</span>}
+      </p>
+    </div>
+  );
+}
+
 function ProjectCard({ project }) {
   return (
     <Link
       to={`/projects/${project.id}`}
-      className="card group flex flex-col p-5 transition-shadow hover:shadow-md"
+      className="card group flex flex-col p-5 transition-colors hover:border-line-strong"
     >
-      <h3 className="font-semibold tracking-tight group-hover:text-forest-700">{project.name}</h3>
-      <p className="mt-1 line-clamp-2 min-h-10 text-sm text-muted">
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="font-semibold leading-snug transition-colors group-hover:text-forest-700">
+          {project.name}
+        </h3>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+          className="mt-0.5 shrink-0 text-faint transition-colors group-hover:text-forest-600"
+        >
+          <path
+            d="M3 8h10M9 4l4 4-4 4"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+
+      <p className="mt-1.5 line-clamp-2 min-h-10 text-sm leading-relaxed text-muted">
         {project.description || 'No description provided.'}
       </p>
 
-      <div className="mt-4 flex items-center gap-5 border-t border-line pt-3">
+      <div className="mt-5 flex items-center gap-6 border-t border-line pt-3.5">
         <div>
           <p className="text-lg font-semibold tabular-nums">{project.site_count ?? 0}</p>
-          <p className="text-xs text-muted">Sites</p>
+          <p className="text-[11px] text-muted">{project.site_count === 1 ? 'Site' : 'Sites'}</p>
         </div>
         <div>
           <p className="text-lg font-semibold tabular-nums">
             {numberFormat.format(project.total_area_ha ?? 0)}
           </p>
-          <p className="text-xs text-muted">Hectares</p>
+          <p className="text-[11px] text-muted">Hectares</p>
         </div>
       </div>
     </Link>
@@ -82,24 +115,40 @@ export default function DashboardPage() {
     }
   };
 
+  const totalSites = projects.reduce((sum, p) => sum + (p.site_count ?? 0), 0);
+  const totalArea = projects.reduce((sum, p) => sum + (p.total_area_ha ?? 0), 0);
+
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="mx-auto max-w-5xl px-5 py-9">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Projects</h1>
+          <h1 className="text-[26px] font-semibold">Projects</h1>
           <p className="mt-1 text-sm text-muted">
             Carbon and biodiversity programmes, each with mapped field sites.
           </p>
         </div>
-        <button type="button" className="btn-primary" onClick={() => setFormOpen((v) => !v)}>
-          {formOpen ? 'Cancel' : 'New project'}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link to="/map" className="btn btn-secondary">
+            Open map
+          </Link>
+          <button type="button" className="btn btn-primary" onClick={() => setFormOpen((v) => !v)}>
+            {formOpen ? 'Cancel' : 'New project'}
+          </button>
+        </div>
       </div>
 
+      {!loading && !error && projects.length > 0 && (
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <SummaryStat label="Projects" value={projects.length} />
+          <SummaryStat label="Mapped sites" value={totalSites} />
+          <SummaryStat label="Total area" value={numberFormat.format(totalArea)} suffix="ha" />
+        </div>
+      )}
+
       {formOpen && (
-        <form onSubmit={handleCreate} className="card mt-5 space-y-4 p-5">
+        <form onSubmit={handleCreate} className="card mt-5 animate-fade-up space-y-4 p-6">
           <div>
-            <label htmlFor="project-name" className="mb-1.5 block text-sm font-medium">
+            <label htmlFor="project-name" className="label">
               Project name
             </label>
             <input
@@ -114,8 +163,8 @@ export default function DashboardPage() {
           </div>
 
           <div>
-            <label htmlFor="project-description" className="mb-1.5 block text-sm font-medium">
-              Description <span className="font-normal text-muted">(optional)</span>
+            <label htmlFor="project-description" className="label">
+              Description <span className="font-normal text-faint">(optional)</span>
             </label>
             <textarea
               id="project-description"
@@ -133,9 +182,14 @@ export default function DashboardPage() {
             </p>
           )}
 
-          <button type="submit" disabled={saving || !name.trim()} className="btn-primary">
-            {saving ? 'Creating…' : 'Create project'}
-          </button>
+          <div className="flex gap-2">
+            <button type="submit" disabled={saving || !name.trim()} className="btn btn-primary">
+              {saving ? 'Creating…' : 'Create project'}
+            </button>
+            <button type="button" onClick={() => setFormOpen(false)} className="btn btn-secondary">
+              Cancel
+            </button>
+          </div>
         </form>
       )}
 
@@ -143,28 +197,43 @@ export default function DashboardPage() {
         {loading && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="card h-40 animate-pulse bg-forest-50/40" />
+              <div key={i} className="card skeleton h-40 border-transparent" />
             ))}
           </div>
         )}
 
         {!loading && error && (
-          <div className="card p-6 text-center">
+          <div className="card p-8 text-center">
             <p className="text-sm text-danger-500">{error}</p>
-            <button type="button" onClick={load} className="btn-primary mt-4">
+            <button type="button" onClick={load} className="btn btn-primary mt-4">
               Retry
             </button>
           </div>
         )}
 
         {!loading && !error && projects.length === 0 && (
-          <div className="card p-10 text-center">
-            <h3 className="font-semibold">No projects yet</h3>
-            <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
+          <div className="card p-12 text-center">
+            <span className="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-forest-50 text-forest-600">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path
+                  d="M3 6.5 7.5 4 12.5 6.5 17 4v9.5L12.5 16 7.5 13.5 3 16V6.5ZM7.5 4v9.5M12.5 6.5V16"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            <h3 className="mt-4 font-semibold">No projects yet</h3>
+            <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-muted">
               Create a project, then draw its field sites on the map to pull in biodiversity and
-              climate data.
+              climate data for each boundary.
             </p>
-            <button type="button" className="btn-primary mt-5" onClick={() => setFormOpen(true)}>
+            <button
+              type="button"
+              className="btn btn-primary mt-6"
+              onClick={() => setFormOpen(true)}
+            >
               Create your first project
             </button>
           </div>

@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { apiError } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import Logo from './Logo.jsx';
 
 const COPY = {
   login: {
@@ -10,7 +11,7 @@ const COPY = {
     subtitle: 'Sign in to your carbon and biodiversity projects.',
     action: 'Sign in',
     pending: 'Signing in…',
-    switchText: 'New here?',
+    switchText: 'New to Darukaa.Earth?',
     switchCta: 'Create an account',
     switchTo: '/register',
   },
@@ -19,7 +20,7 @@ const COPY = {
     subtitle: 'Start mapping and monitoring project sites.',
     action: 'Create account',
     pending: 'Creating account…',
-    switchText: 'Already registered?',
+    switchText: 'Already have an account?',
     switchCta: 'Sign in',
     switchTo: '/login',
   },
@@ -37,8 +38,10 @@ export default function AuthForm({ mode }) {
   const [submitting, setSubmitting] = useState(false);
   const [slow, setSlow] = useState(false);
 
+  const destination = location.state?.from ?? '/dashboard';
+
   if (!booting && isAuthenticated) {
-    return <Navigate to={location.state?.from ?? '/'} replace />;
+    return <Navigate to={destination} replace />;
   }
 
   const handleSubmit = async (event) => {
@@ -59,7 +62,7 @@ export default function AuthForm({ mode }) {
       } else {
         await register(email.trim(), password);
       }
-      navigate(location.state?.from ?? '/', { replace: true });
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(apiError(err));
     } finally {
@@ -70,22 +73,19 @@ export default function AuthForm({ mode }) {
   };
 
   return (
-    <div className="grid min-h-full place-items-center bg-canvas px-4 py-10">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-forest-600 text-sm font-bold text-white">
-            D
-          </span>
-          <span className="text-base font-semibold tracking-tight">Darukaa.Earth</span>
+    <div className="grid min-h-dvh place-items-center bg-canvas px-4 py-12">
+      <div className="w-full max-w-sm animate-fade-up">
+        <div className="mb-7">
+          <Logo className="h-7" />
         </div>
 
-        <div className="card p-6">
-          <h1 className="text-xl font-semibold tracking-tight">{copy.title}</h1>
-          <p className="mt-1 text-sm text-muted">{copy.subtitle}</p>
+        <div className="card p-7">
+          <h1 className="text-[22px] font-semibold">{copy.title}</h1>
+          <p className="mt-1.5 text-sm text-muted">{copy.subtitle}</p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+          <form onSubmit={handleSubmit} className="mt-7 space-y-4" noValidate>
             <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
+              <label htmlFor="email" className="label">
                 Email
               </label>
               <input
@@ -96,12 +96,12 @@ export default function AuthForm({ mode }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="input"
-                placeholder="you@example.com"
+                placeholder="you@organisation.org"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium">
+              <label htmlFor="password" className="label">
                 Password
               </label>
               <input
@@ -120,25 +120,28 @@ export default function AuthForm({ mode }) {
             {error && (
               <p
                 role="alert"
-                className="rounded-lg border border-danger-500/30 bg-danger-500/5 px-3 py-2 text-sm text-danger-500"
+                className="rounded-lg border border-danger-500/25 bg-danger-500/5 px-3 py-2 text-sm text-danger-500"
               >
                 {error}
               </p>
             )}
 
-            <button type="submit" disabled={submitting} className="btn-primary w-full">
+            <button type="submit" disabled={submitting} className="btn btn-primary w-full">
+              {submitting && (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              )}
               {submitting ? copy.pending : copy.action}
             </button>
 
             {slow && (
-              <p className="text-center text-xs text-muted">
+              <p className="text-center text-xs leading-relaxed text-muted">
                 Waking the server — the free tier sleeps when idle. This can take up to a minute.
               </p>
             )}
           </form>
         </div>
 
-        <p className="mt-4 text-center text-sm text-muted">
+        <p className="mt-5 text-center text-sm text-muted">
           {copy.switchText}{' '}
           <Link to={copy.switchTo} className="font-medium text-forest-600 hover:underline">
             {copy.switchCta}
