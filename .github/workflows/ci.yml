@@ -38,12 +38,10 @@ jobs:
         run: ruff format --check .
 
       - name: Tests (pytest)
-        run: |
-          if [ -d tests ]; then
-            pytest -q
-          else
-            echo "::warning::No tests/ directory yet - add backend/tests/ to enable this gate."
-          fi
+        run: pytest -q
+        env:
+          DATABASE_URL: postgresql+psycopg://ci:ci@localhost:5432/ci
+          JWT_SECRET: ci-only-not-a-real-secret
 
   frontend:
     name: Frontend - lint, format, build
