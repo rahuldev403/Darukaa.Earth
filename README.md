@@ -7,9 +7,9 @@ provenance.
 
 |                |                                                                                               |
 | -------------- | --------------------------------------------------------------------------------------------- |
-| **Live demo**  | `<VERCEL_URL>`                                                                                |
+| **Live demo**  | https://darukaa-dashborad.vercel.app                                                          |
 | **API**        | https://darukaa-api-uszh.onrender.com · [`/docs`](https://darukaa-api-uszh.onrender.com/docs) |
-| **Demo login** | `<DEMO_EMAIL>` / `<DEMO_PASSWORD>`                                                            |
+| **Demo login** | `level432520537352822@gmail.com` / `dfd33343d`                                                |
 
 > The API is on Render's free tier and sleeps when idle. The first request can take ~50 seconds
 > while the container wakes. Loading `/health` once before demoing avoids this.
