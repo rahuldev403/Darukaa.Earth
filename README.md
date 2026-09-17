@@ -14,6 +14,8 @@ provenance.
 > The API is on Render's free tier and sleeps when idle. The first request can take ~50 seconds
 > while the container wakes. Loading `/health` once before demoing avoids this.
 
+![Darukaa.Earth landing page](docs/screenshots/landing.png)
+
 ---
 
 ## Contents
