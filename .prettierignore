@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+coverage/
+backend/.venv/
+backend/**/__pycache__/
+*.pdf
+package-lock.json

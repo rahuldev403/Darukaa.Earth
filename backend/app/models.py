@@ -36,9 +36,7 @@ class Project(Base):
     )
 
     owner: Mapped[User] = relationship(back_populates="projects")
-    sites: Mapped[list[Site]] = relationship(
-        back_populates="project", cascade="all, delete-orphan"
-    )
+    sites: Mapped[list[Site]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class Site(Base):
