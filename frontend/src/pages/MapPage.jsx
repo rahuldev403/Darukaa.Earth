@@ -8,6 +8,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { apiError } from '../api/client.js';
 import { createSite, deleteSite, listProjects, listSitesGeoJson } from '../api/resources.js';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import MapSearch from '../components/MapSearch.jsx';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const EMPTY_COLLECTION = { type: 'FeatureCollection', features: [] };
@@ -37,6 +38,7 @@ export default function MapPage() {
   const mapRef = useRef(null);
   const drawRef = useRef(null);
   const hasFitRef = useRef(false);
+  const searchMarkerRef = useRef(null);
 
   const [sites, setSites] = useState(EMPTY_COLLECTION);
   const [projects, setProjects] = useState([]);
@@ -182,6 +184,8 @@ export default function MapPage() {
 
     return () => {
       resizeObserver.disconnect();
+      searchMarkerRef.current?.remove();
+      searchMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
       drawRef.current = null;
@@ -225,6 +229,41 @@ export default function MapPage() {
     if (map.isStyleLoaded()) apply();
     else map.once('idle', apply);
   }, [projection]);
+
+  const getSearchBias = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return null;
+    const center = map.getCenter();
+    return { lat: center.lat, lon: center.lng, zoom: map.getZoom() };
+  }, []);
+
+  const placeSearchMarker = (lngLat) => {
+    const map = mapRef.current;
+    searchMarkerRef.current?.remove();
+    searchMarkerRef.current =
+      map && lngLat ? new mapboxgl.Marker({ color: '#237249' }).setLngLat(lngLat).addTo(map) : null;
+  };
+
+  const handleSelectPlace = (place) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    placeSearchMarker(place.center);
+    if (place.bbox) {
+      map.fitBounds(place.bbox, { padding: 80, maxZoom: 15, duration: 1400 });
+    } else {
+      map.flyTo({ center: place.center, zoom: 13, duration: 1400 });
+    }
+  };
+
+  const handleSelectSite = (feature) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    placeSearchMarker(null);
+    const bounds = boundsOf({ features: [feature] });
+    if (bounds) map.fitBounds(bounds, { padding: 100, maxZoom: 15, duration: 1400 });
+  };
 
   const confirmDeleteSite = async () => {
     if (!pendingDelete) return;
@@ -291,8 +330,17 @@ export default function MapPage() {
     <div style={{ position: 'absolute', inset: 0 }}>
       <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 p-4">
-        <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-3 rounded-xl border border-line bg-surface/90 px-4 py-2.5 shadow-lift backdrop-blur-md">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col gap-2 p-4 pr-16 lg:flex-row lg:items-start">
+        <div className="pointer-events-auto w-full lg:w-80 lg:shrink-0">
+          <MapSearch
+            sites={sites}
+            getBias={getSearchBias}
+            onSelectPlace={handleSelectPlace}
+            onSelectSite={handleSelectSite}
+          />
+        </div>
+
+        <div className="pointer-events-auto flex min-w-0 items-center gap-3 rounded-xl border border-line bg-surface/90 px-4 py-2.5 shadow-lift backdrop-blur-md lg:mx-auto lg:max-w-xl">
           <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-forest-500" />
             <span className="truncate">{activeProject ? activeProject.name : 'All sites'}</span>
@@ -306,7 +354,7 @@ export default function MapPage() {
               View all
             </Link>
           )}
-          <span className="hidden text-xs text-muted lg:inline">
+          <span className="hidden text-xs text-muted 2xl:inline">
             Click the polygon tool, trace a boundary, then double-click to finish.
           </span>
 

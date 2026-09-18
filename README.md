@@ -54,8 +54,9 @@ flowchart LR
 ```
 
 **Three tiers.** A React SPA on Vercel, a FastAPI service on Render, and Neon Postgres with the
-PostGIS extension. The frontend never talks to an external data provider — it only ever talks to
-our own API.
+PostGIS extension. All analytics data reaches the frontend through our own API — the browser never
+calls GBIF or NASA POWER. The one direct external call is map place search (Photon), an interactive
+lookup whose results are never stored.
 
 ### The central design decision: ingest once, serve from the database
 
@@ -346,6 +347,12 @@ reported as "500+" rather than an exact figure.
 
 **Render free tier sleeps.** First request after idle takes ~50 seconds. The UI detects a slow
 request and explains that the server is waking, rather than appearing broken.
+
+**Place search uses Photon, a free OpenStreetMap geocoder.** Mapbox's geocoder was tested first and
+performed poorly on rural India: "Agumbe" resolved to Spain, "Hebbal Lake" to New York, and
+"Sajnekhali" returned nothing. Photon located four of five test places within a kilometre. It is a
+community service with fair-use limits and no uptime guarantee, so the search box degrades to a
+message if it fails, and production would self-host Photon or use a paid geocoder.
 
 ### With more time
 
